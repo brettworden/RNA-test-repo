@@ -1,0 +1,40 @@
+name: Python - Test Workflow
+platform: node
+blocks:
+  - action: system/FaaS/Python
+    name: FaaS_1
+    inputs:
+      - name: code
+        value: |-
+          `import random
+
+          def generate_random_number(min_value, max_value):
+              random_number = random.randint(min_value, max_value)
+              return random_number
+
+          if __name__ == "__main__":
+              # Replace the range values as needed
+              min_value = 1
+              max_value = 10000
+
+              random_number = generate_random_number(min_value, max_value)
+              print("Random Number:", random_number)
+          `
+  - action: assign
+    name: Assign_1
+    variable: $result
+    value: $FaaS_1.result
+variables:
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: any
+    value: '""'
+meta:
+  version: 5
+  layout: flow
+  workerGroup: default
+finally: null

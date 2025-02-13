@@ -1,0 +1,105 @@
+name: SSH - df -h
+platform: node
+blocks:
+  - action: comment
+    value: run command to get list of directories
+  - action: system/Common/SSH
+    name: sshCommand
+    inputs:
+      - name: authKey
+        value: '"admin/10"'
+      - name: command
+        value: '`df -h`'
+  - action: comment
+    value: split each line of the output
+  - action: system/Common/String/StringSplit
+    name: breakLines
+    inputs:
+      - name: str
+        value: $sshCommand.result
+      - name: separator
+        value: '"\n"'
+    breakpoint: enabled
+  - action: comment
+    value: loop through each line
+  - action: foreach
+    name: lineLoop
+    blocks:
+      - action: comment
+        value: skips first line
+      - action: if
+        name: afterHeader
+        then:
+          - action: comment
+            value: splits string into each components
+          - action: system/Common/String/StringSplit
+            name: breakString
+            inputs:
+              - name: str
+                value: $lineLoop.item
+              - name: separator
+                value: '" "'
+          - action: comment
+            value: remove all spaces
+          - action: system/Common/Array/Array Compact
+            name: removeSpaces
+            inputs:
+              - name: array
+                value: $breakString.result
+          - action: comment
+            value: checks for directory over 20%
+          - action: if
+            name: If_2
+            then:
+              - action: comment
+                value: Create an array of outliners
+              - action: system/Common/ArrayPush
+                name: createList
+                inputs:
+                  - name: array
+                    value: $result
+                  - name: item
+                    value: $lineLoop.item
+                breakpoint: enabled
+              - action: comment
+                value: Create Incident Ticket
+              - name: Create_Invident_Ticket
+                action: system/ServiceNow/createTable
+                inputs:
+                  - name: authKey
+                    value: '"admin/ServiceNow"'
+                  - name: tableName
+                    value: '"incident"'
+                  - name: Table
+                    value: |-
+                      {
+                          "short_description": "High Disk Usage over " + $removeSpaces.result[4],
+                          "urgency": "2",
+                          "impact": "2",
+                          "priority": "3",
+                          "description": "High disk usage: " + $lineLoop.item + "\n \nThe follow directory is high usage: " + $removeSpaces.result[0],
+                          "category": "Hardware",
+                          "subcategory": "Disk",
+                          "state": "New",
+                          "caller_id" : "a8f98bb0eb32010045e1a5115206fe3a"
+                      }
+            else: []
+            condition: "parseFloat($removeSpaces.result[4]) > 20"
+        else: []
+        condition: $lineLoop.index > 0
+    list: $breakLines.result
+variables:
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  version: 5
+  layout: flow
+  workerGroup: default
+  description: "SSH Command: \"df -h\", lists all files directories over 20% utilization"
+finally: null
